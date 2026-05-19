@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block title %}InstaTrack — Dashboard{% endblock %}
+
+{% block content %}
+<!-- HERO -->
+<div class="page-header animate-in">
+  <div class="page-title">Track <span class="gradient-text">Instagram</span><br>Accounts.</div>
+  <p class="text-muted" style="margin-top: 0.75rem; font-size: 0.95rem; max-width: 480px;">
+    Monitor followers, posts, likes & comments — all stored in your own database.
+  </p>
+</div>
+
+<!-- ADD ACCOUNT -->
+<div id="add" class="card card-glow mb-4 animate-in delay-1" style="max-width: 580px;">
+  <p class="section-title">Add Account to Track</p>
+  <div style="display: flex; gap: 0.75rem; align-items: center;">
+    <span class="mono text-muted" style="font-size:1.1rem; font-weight:600;">@</span>
+    <input
+      id="usernameInput"
+      class="input"
+      type="text"
+      placeholder="instagram_username"
+      autocomplete="off"
+    />
+    <button class="btn btn-primary" onclick="startScrape()" id="scrapeBtn">
+      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path d="M12 4v16m8-8H4"/>
+      </svg>
+      Track
+    </button>
+  </div>
+  <p class="text-muted mt-1" style="font-size:0.75rem;">Only public profiles. Scraping may take 30–60 seconds.</p>
+
+  <!-- Scrape progress -->
+  <div id="scrapeStatus" style="display:none; margin-top:1rem;">
+    <div style="display:flex; align-items:center; gap:0.75rem;">
+      <div class="spinner"></div>
+      <span id="scrapeMsg" class="text-muted" style="font-size:0.85rem;">Connecting to Instagram…</span>
+    </div>
+    <div style="background:var(--surface2); border-radius:8px; height:4px; margin-top:0.75rem; overflow:hidden;">
+      <div id="progressBar" style="height:100%; width:10%; background:var(--ig-gradient); border-radius:8px; transition:width 0.5s ease;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- TRACKED ACCOUNTS -->
+{% if accounts %}
+<p class="section-title animate-in delay-2">Tracked Accounts ({{ accounts|length }})</p>
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; margin-bottom: 3rem;">
+  {% for acc in accounts %}
+  <div class="card card-glow animate-in" style="display:flex; flex-direction:column; gap:1rem; animation-delay: {{ loop.index * 0.08 }}s;">
+    <!-- Header row -->
+    <div style="display:flex; align-items:center; gap:0.85rem;">
+      {% if acc.profile_pic_url %}
+        <div style="position:relative; flex-shrink:0;">
+          <div style="width:50px;height:50px;border-radius:50%;padding:2px;background:var(--ig-gradient);">
+            <img src="{{ acc.profile_pic_url }}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;border:2px solid var(--surface);" onerror="this.parentElement.innerHTML='<div style=\'width:100%;height:100%;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;border:2px solid var(--surface);\'><svg width=20 height=20 fill=none viewBox=\'0 0 24 24\' stroke=\'var(--muted)\' stroke-width=1.5><path stroke-linecap=round d=\'M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.25a8.25 8.25 0 0115 0\'/></svg></div>'" />
+          </div>
+        </div>
+      {% else %}
+        <div style="width:50px;height:50px;border-radius:50%;padding:2px;background:var(--ig-gradient);flex-shrink:0;">
+          <div style="width:100%;height:100%;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;border:2px solid var(--surface);">
+            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="var(--muted)" stroke-width="1.5">
+              <path stroke-linecap="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.25a8.25 8.25 0 0115 0"/>
+            </svg>
+          </div>
+        </div>
+      {% endif %}
+      <div style="flex:1; min-width:0;">
+        <div style="font-weight:700; font-size:0.95rem;">
+          <a href="/profile/{{ acc.username }}" style="text-decoration:none; color:var(--text);">@{{ acc.username }}</a>
+        </div>
+        {% if acc.full_name %}
+          <div class="text-muted" style="font-size:0.78rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ acc.full_name }}</div>
+        {% endif %}
+      </div>
+      {% if acc.is_private %}
+        <span class="pill pill-red">🔒 Private</span>
+      {% else %}
+        <span class="pill pill-green">✓ Public</span>
+      {% endif %}
+    </div>
+
+    <!-- Mini stats -->
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.5rem; text-align:center;">
+      <div style="background:var(--surface2); border-radius:10px; padding:0.55rem 0.25rem;">
+        <div style="font-weight:800; font-size:0.95rem; color:var(--grad-1);">—</div>
+        <div style="font-size:0.62rem; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; font-weight:600;">Followers</div>
+      </div>
+      <div style="background:var(--surface2); border-radius:10px; padding:0.55rem 0.25rem;">
+        <div style="font-weight:800; font-size:0.95rem;">—</div>
+        <div style="font-size:0.62rem; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; font-weight:600;">Posts</div>
+      </div>
+      <div style="background:var(--surface2); border-radius:10px; padding:0.55rem 0.25rem;">
+        <div style="font-weight:800; font-size:0.95rem;">—</div>
+        <div style="font-size:0.62rem; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; font-weight:600;">Avg Likes</div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div style="display:flex; gap:0.5rem; align-items:center;">
+      <a href="/profile/{{ acc.username }}" class="btn btn-ghost btn-sm" style="flex:1; justify-content:center;">View Profile</a>
+      <a href="/scrape/{{ acc.username }}" class="btn btn-ghost btn-sm" style="flex:1; justify-content:center;">Re-scrape</a>
+      <form action="/delete/{{ acc.id }}" method="POST" style="margin:0;">
+        <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Remove @{{ acc.username }}?')">✕</button>
+      </form>
+    </div>
+
+    {% if acc.last_scraped %}
+    <div class="text-muted mono" style="font-size:0.65rem; text-align:right;">
+      Last scraped: {{ acc.last_scraped | string | truncate(16, True, '') }}
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card animate-in delay-2" style="text-align:center; padding: 4rem 2rem; max-width: 480px;">
+  <div style="font-size:3rem; margin-bottom:0.75rem;">📊</div>
+  <div style="font-size:1.1rem; font-weight:700; margin-bottom:0.5rem;">No accounts tracked yet</div>
+  <div class="text-muted" style="font-size:0.88rem;">Add a public Instagram username above to get started.</div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function startScrape() {
+  const input = document.getElementById('usernameInput');
+  const username = input.value.trim().replace(/^@/, '');
+  if (!username) { input.focus(); return; }
+
+  const btn = document.getElementById('scrapeBtn');
+  const status = document.getElementById('scrapeStatus');
+  const msg = document.getElementById('scrapeMsg');
+  const bar = document.getElementById('progressBar');
+
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;"></div> Tracking…';
+  status.style.display = 'block';
+
+  const messages = [
+    'Connecting to Instagram…',
+    'Fetching profile data…',
+    'Collecting posts…',
+    'Saving to database…',
+  ];
+  let msgIdx = 0, progress = 10;
+  const tick = setInterval(() => {
+    progress = Math.min(progress + 8, 88);
+    bar.style.width = progress + '%';
+    if (msgIdx < messages.length - 1) msg.textContent = messages[++msgIdx];
+  }, 3000);
+
+  try {
+    const res = await fetch('/api/scrape', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({username})
+    });
+    const {job_id} = await res.json();
+
+    const poll = setInterval(async () => {
+      const r = await fetch('/api/scrape/status/' + job_id);
+      const data = await r.json();
+      if (data.status === 'done') {
+        clearInterval(poll);
+        clearInterval(tick);
+        bar.style.width = '100%';
+        if (data.result.success) {
+          window.location.href = '/profile/' + username;
+        } else {
+          msg.textContent = '❌ ' + data.result.error;
+          msg.style.color = 'var(--danger)';
+          btn.disabled = false;
+          btn.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M12 4v16m8-8H4"/></svg> Track';
+        }
+      }
+    }, 2000);
+  } catch(e) {
+    clearInterval(tick);
+    msg.textContent = '❌ Network error. Is Flask running?';
+    btn.disabled = false;
+  }
+}
+
+document.getElementById('usernameInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') startScrape();
+});
+</script>
+{% endblock %}

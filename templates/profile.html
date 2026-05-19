@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% block title %}@{{ account.username }} — InstaTrack{% endblock %}
+
+{% block content %}
+<!-- PROFILE HEADER -->
+<div class="animate-in" style="padding-top:1.5rem; margin-bottom:2rem; display:flex; align-items:flex-start; gap:1.5rem; flex-wrap:wrap;">
+  <div style="flex-shrink:0;">
+    {% if account.profile_pic_url %}
+      <div style="width:86px;height:86px;border-radius:50%;padding:3px;background:var(--ig-gradient);box-shadow:0 4px 20px rgba(225,48,108,0.25);">
+        <img src="{{ account.profile_pic_url }}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;border:3px solid var(--surface);" onerror="this.style.display='none'" />
+      </div>
+    {% endif %}
+  </div>
+  <div style="flex:1; min-width:200px;">
+    <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+      <h1 style="font-size:1.75rem;font-weight:800;letter-spacing:-1px;">@{{ account.username }}</h1>
+      {% if account.is_private %}<span class="pill pill-red">🔒 Private</span>{% else %}<span class="pill pill-green">✓ Public</span>{% endif %}
+    </div>
+    {% if account.full_name %}<div style="font-size:0.95rem;color:var(--muted);margin-top:3px;font-weight:500;">{{ account.full_name }}</div>{% endif %}
+    {% if account.bio %}<div style="font-size:0.84rem;color:var(--text2);margin-top:8px;max-width:480px;line-height:1.6;">{{ account.bio }}</div>{% endif %}
+  </div>
+  <div style="display:flex; gap:0.5rem; align-items:flex-start; flex-wrap:wrap;">
+    <a href="/scrape/{{ account.username }}" class="btn btn-primary btn-sm">↻ Re-scrape</a>
+    <a href="/export/{{ account.username }}/posts" class="btn btn-ghost btn-sm">⬇ Posts</a>
+    <a href="/export/{{ account.username }}/snapshots" class="btn btn-ghost btn-sm">⬇ Snapshots</a>
+    <a href="/export/{{ account.username }}/comments" class="btn btn-ghost btn-sm">⬇ Comments</a>
+    <a href="/" class="btn btn-ghost btn-sm">← Back</a>
+  </div>
+</div>
+
+<!-- STATS GRID -->
+<div class="stat-grid mb-4 animate-in delay-1">
+  <div class="stat-box">
+    {% if snapshots %}
+      <div class="stat-num" style="color:var(--grad-1);">{{ "{:,}".format(snapshots[0].followers) }}</div>
+    {% else %}
+      <div class="stat-num text-muted">—</div>
+    {% endif %}
+    <div class="stat-label">Followers</div>
+  </div>
+  <div class="stat-box">
+    {% if snapshots %}
+      <div class="stat-num" style="color:var(--grad-2);">{{ "{:,}".format(snapshots[0].following) }}</div>
+    {% else %}
+      <div class="stat-num text-muted">—</div>
+    {% endif %}
+    <div class="stat-label">Following</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-num" style="color:var(--grad-3);">{{ eng_stats.total_posts or 0 }}</div>
+    <div class="stat-label">Posts Tracked</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-num text-success">{{ "{:,}".format(eng_stats.total_likes|int) if eng_stats.total_likes else 0 }}</div>
+    <div class="stat-label">Total Likes</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-num" style="color:var(--info);">{{ eng_stats.total_comments|int if eng_stats.total_comments else 0 }}</div>
+    <div class="stat-label">Total Comments</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-num" style="color:#ec4899;">{{ "{:,.0f}".format(eng_stats.avg_likes) if eng_stats.avg_likes else 0 }}</div>
+    <div class="stat-label">Avg Likes/Post</div>
+  </div>
+</div>
+
+<!-- FOLLOWER CHART -->
+{% if chart_labels|length > 1 %}
+<div class="card mb-4 animate-in delay-2">
+  <p class="section-title">Follower Growth</p>
+  <canvas id="followerChart" style="max-height:220px;"></canvas>
+</div>
+{% endif %}
+
+<!-- POSTS TABLE -->
+{% if posts %}
+<p class="section-title animate-in delay-2">Recent Posts ({{ posts|length }} tracked)</p>
+<div class="card mb-4 animate-in delay-3" style="padding:0; overflow-x:auto;">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Post</th>
+        <th>Type</th>
+        <th>Likes</th>
+        <th>Comments</th>
+        <th>Posted</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for post in posts %}
+      <tr>
+        <td style="max-width:260px;">
+          <div style="font-size:0.82rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+            {% if post.caption %}
+              {{ post.caption[:80] }}{% if post.caption|length > 80 %}…{% endif %}
+            {% else %}
+              <span style="color:var(--border2);">(no caption)</span>
+            {% endif %}
+          </div>
+          <div class="mono" style="font-size:0.68rem;color:var(--muted);margin-top:2px;opacity:0.6;">{{ post.shortcode }}</div>
+        </td>
+        <td>
+          {% if post.post_type == 'video' %}
+            <span class="pill pill-orange">Video</span>
+          {% elif post.post_type == 'carousel' %}
+            <span class="pill pill-purple">Carousel</span>
+          {% else %}
+            <span class="pill pill-blue">Image</span>
+          {% endif %}
+        </td>
+        <td style="font-weight:700; color:var(--success);">
+          {{ "{:,}".format(post.latest_likes|int) if post.latest_likes else '—' }}
+        </td>
+        <td style="font-weight:700; color:var(--info);">
+          {{ post.latest_comments|int if post.latest_comments else '—' }}
+        </td>
+        <td class="mono text-muted" style="font-size:0.76rem;">
+          {{ post.posted_at | string | truncate(10, True, '') if post.posted_at else '—' }}
+        </td>
+        <td>
+          <a href="/post/{{ post.id }}" class="btn btn-ghost btn-sm">Details</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card animate-in delay-2" style="text-align:center; padding:2.5rem; color:var(--muted);">
+  No posts scraped yet. Try re-scraping this account.
+</div>
+{% endif %}
+
+<!-- SNAPSHOTS TABLE -->
+{% if snapshots %}
+<p class="section-title mt-3 animate-in delay-3">Snapshot History</p>
+<div class="card animate-in delay-3" style="padding:0; overflow-x:auto; margin-bottom:3rem;">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Followers</th>
+        <th>Following</th>
+        <th>Posts</th>
+        <th>Δ Followers</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for i, snap in enumerate(snapshots) %}
+      <tr>
+        <td class="mono text-muted" style="font-size:0.78rem;">{{ snap.scraped_at | string | truncate(16, True, '') }}</td>
+        <td style="font-weight:700;">{{ "{:,}".format(snap.followers) }}</td>
+        <td>{{ "{:,}".format(snap.following) }}</td>
+        <td>{{ snap.post_count }}</td>
+        <td>
+          {% if i < snapshots|length - 1 %}
+            {% set delta = snap.followers - snapshots[i+1].followers %}
+            {% if delta > 0 %}
+              <span class="text-success" style="font-weight:700;">+{{ "{:,}".format(delta) }}</span>
+            {% elif delta < 0 %}
+              <span class="text-danger" style="font-weight:700;">{{ "{:,}".format(delta) }}</span>
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+{% if chart_labels|length > 1 %}
+const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+const tickColor = isDark ? '#6b6b82' : '#7c7c96';
+
+const ctx = document.getElementById('followerChart').getContext('2d');
+const gradient = ctx.createLinearGradient(0, 0, 0, 220);
+gradient.addColorStop(0, 'rgba(225,48,108,0.15)');
+gradient.addColorStop(1, 'rgba(225,48,108,0.01)');
+
+new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: {{ chart_labels | tojson }},
+    datasets: [{
+      label: 'Followers',
+      data: {{ chart_followers | tojson }},
+      borderColor: '#E1306C',
+      backgroundColor: gradient,
+      borderWidth: 2.5,
+      pointBackgroundColor: '#E1306C',
+      pointBorderColor: '#fff',
+      pointBorderWidth: 2,
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      tension: 0.4,
+      fill: true
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: tickColor, font: { family: 'JetBrains Mono', size: 11 } } },
+      y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { family: 'JetBrains Mono', size: 11 } } }
+    }
+  }
+});
+{% endif %}
+</script>
+{% endblock %}
